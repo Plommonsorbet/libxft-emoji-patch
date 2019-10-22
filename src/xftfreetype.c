@@ -514,7 +514,7 @@ XftFontInfoFill (Display *dpy, _Xconst FcPattern *pattern, XftFontInfo *fi)
     /*
      * Compute glyph load flags
      */
-    fi->load_flags = FT_LOAD_DEFAULT;
+    fi->load_flags = FT_LOAD_DEFAULT | FT_LOAD_COLOR;
 
 #ifndef XFT_EMBEDDED_BITMAP
 #define XFT_EMBEDDED_BITMAP "embeddedbitmap"
@@ -766,6 +766,7 @@ XftFontOpenInfo (Display	*dpy,
     FcChar32		hash_value;
     FcChar32		rehash_value;
     FcBool		antialias;
+    FcBool		color;
     int			max_glyph_memory;
     int			alloc_size;
     int			ascent, descent, height;
@@ -822,12 +823,16 @@ XftFontOpenInfo (Display	*dpy,
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
 	antialias = FcFalse;
 
+    color = FT_HAS_COLOR(face) ? FcTrue : FcFalse;
+
     /*
      * Find the appropriate picture format
      */
     if (fi->render)
     {
-	if (antialias)
+	if (color)
+	    format = XRenderFindStandardFormat (dpy, PictStandardARGB32);
+	else if (antialias)
 	{
 	    switch (fi->rgba) {
 	    case FC_RGBA_RGB:
@@ -842,9 +847,7 @@ XftFontOpenInfo (Display	*dpy,
 	    }
 	}
 	else
-	{
 	    format = XRenderFindStandardFormat (dpy, PictStandardA1);
-	}
 
 	if (!format)
 	    goto bail2;
@@ -959,6 +962,13 @@ XftFontOpenInfo (Display	*dpy,
      * which doesn't happen in XftFontInfoFill
      */
     font->info.antialias = antialias;
+
+    /*
+     * Set color value, which is only known once the
+     * font was loaded
+     */
+    font->info.color = color;
+
     /*
      * bump XftFile reference count
      */
